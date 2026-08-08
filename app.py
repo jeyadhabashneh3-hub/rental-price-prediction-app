@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import joblib
 import numpy as np
+from openai import OpenAI
 
 
 # ---------------------------------------------------
@@ -101,7 +102,7 @@ def load_model():
 
 
 model = load_model()
-
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # ---------------------------------------------------
 # HEADER
@@ -235,6 +236,7 @@ if predict_button:
     prediction_log = model.predict(input_data)[0]
 
     predicted_price = np.exp(prediction_log)
+    st.session_state.predicted_price = predicted_price
 
     st.markdown(
         f"""
@@ -249,7 +251,95 @@ if predict_button:
         unsafe_allow_html=True
     )
 
+# ---------------------------------------------------
+# AI ASSISTANT
+# ---------------------------------------------------
 
+st.divider()
+
+st.subheader("🤖 AI Pricing Assistant")
+
+st.write(
+    "Ask questions about the estimated rental price, "
+    "Airbnb pricing, or how the property features may affect the price."
+)
+
+if "chat_messages" not in st.session_state:
+    st.session_state.chat_messages = []
+
+for message in st.session_state.chat_messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+user_question = st.chat_input(
+    "Ask the AI Pricing Assistant..."
+)
+
+if user_question:
+
+    st.session_state.chat_messages.append({
+        "role": "user",
+        "content": user_question
+    })
+
+    with st.chat_message("user"):
+        st.markdown(user_question)
+
+    property_context = f"""
+Current property:
+Room type: {room_type}
+Guests: {accommodates}
+Bathrooms: {bathrooms}
+Bedrooms: {bedrooms}
+Beds: {beds}
+Cancellation policy: {cancellation_policy}
+Cleaning fee: {cleaning_fee}
+Instant booking: {instant_bookable}
+Review rating: {review_scores_rating}
+"""
+
+    if "predicted_price" in st.session_state:
+        property_context += f"""
+Current ML estimated rental price:
+${st.session_state.predicted_price:.2f}
+"""
+
+    prompt = f"""
+You are an AI pricing assistant for an Airbnb rental price estimator.
+
+Help the user understand the estimated rental price and the property
+features in clear, practical language.
+
+The machine learning estimate is only a prediction and should not be
+presented as a guaranteed market price.
+
+{property_context}
+
+User question:
+{user_question}
+"""
+
+    try:
+        response = client.responses.create(
+            model="gpt-5.6-luna",
+            input=prompt
+        )
+
+        assistant_answer = response.output_text
+
+    except Exception as e:
+        assistant_answer = (
+            "The AI Pricing Assistant is temporarily unavailable. "
+            "Please check the OpenAI API configuration."
+        )
+
+    with st.chat_message("assistant"):
+        st.markdown(assistant_answer)
+
+    st.session_state.chat_messages.append({
+        "role": "assistant",
+        "content": assistant_answer
+    })
 # ---------------------------------------------------
 # FOOTER
 # ---------------------------------------------------
