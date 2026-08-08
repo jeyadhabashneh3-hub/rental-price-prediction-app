@@ -270,12 +270,18 @@ if "chat_messages" not in st.session_state:
 for message in st.session_state.chat_messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+with st.form("ai_chat_form"):
+    user_question = st.text_input(
+        "Ask the AI Pricing Assistant",
+        placeholder="Example: Why is my estimated price this amount?"
+    )
 
-user_question = st.chat_input(
-    "Ask the AI Pricing Assistant..."
-)
+    ask_button = st.form_submit_button(
+        "🤖 Ask AI",
+        use_container_width=True
+    )
 
-if user_question:
+if ask_button and user_question:
 
     st.session_state.chat_messages.append({
         "role": "user",
